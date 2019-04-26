@@ -44,12 +44,6 @@ public class CPMissingAtFourty extends ClipboardToken {
         return String.valueOf(perfectPokemon.getAvg() - thisPokemon.getAvg());
     }
 
-
-    @Override
-    public String getStringRepresentation() {
-        return super.getStringRepresentation();
-    }
-
     @Override public String getPreview() {
         return "133";
     }

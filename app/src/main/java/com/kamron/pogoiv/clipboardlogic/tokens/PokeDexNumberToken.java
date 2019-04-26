@@ -37,11 +37,6 @@ public class PokeDexNumberToken  extends ClipboardToken{
     }
 
     @Override
-    public String getStringRepresentation() {
-        return super.getStringRepresentation();
-    }
-
-    @Override
     public String getPreview() {
         int dexNum = 60;
         if (maxEv) {
