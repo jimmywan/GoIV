@@ -19,7 +19,6 @@ import static java.lang.Math.max;
 
 public final class ExtendedTokenTierLogic {
 
-    private static final IVCombination MAXIVCOMB = new IVCombination(15, 15, 15);
     private static final int MAXLEVEL = 40;
     private static final Semaphore MUTEX = new Semaphore(1);
     private static final List<String> RATINGS;
@@ -51,7 +50,8 @@ public final class ExtendedTokenTierLogic {
         MUTEX.acquireUninterruptibly();
         if (MAX_IV == 0) {
             for (final Pokemon pokemon: calc.getPokedexForms()) {
-                MAX_IV = max(MAX_IV, calc.getCpRangeAtLevel(pokemon, MAXIVCOMB, MAXIVCOMB, MAXLEVEL).getFloatingAvg());
+                MAX_IV = max(MAX_IV, calc.getCpRangeAtLevel(pokemon, IVCombination.MAX, IVCombination.MAX, MAXLEVEL)
+                        .getFloatingAvg());
             }
         }
         MUTEX.release();

@@ -37,8 +37,7 @@ public class CPMissingAtFourty extends ClipboardToken {
         //pokemon low high level
         Pokemon poke = getRightPokemon(scanResult.pokemon, pokeInfoCalculator);
 
-        IVCombination perfectIV = new IVCombination(15, 15, 15);
-        CPRange perfectPokemon = pokeInfoCalculator.getCpRangeAtLevel(poke, perfectIV, perfectIV, 40);
+        CPRange perfectPokemon = pokeInfoCalculator.getCpRangeAtLevel(poke, IVCombination.MAX, IVCombination.MAX, 40);
         CPRange thisPokemon = pokeInfoCalculator.getCpRangeAtLevel(poke, scanResult.getLowestIVCombination(),
                 scanResult.getHighestIVCombination(), 40);
 
