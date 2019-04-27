@@ -301,10 +301,6 @@ public class PokeInfoCalculator {
     public void getIVPossibilities(ScanResult scanResult) {
         scanResult.clearIVCombinations();
 
-        if (scanResult.levelRange.min == scanResult.levelRange.max) {
-            getSingleLevelIVPossibility(scanResult, scanResult.levelRange.min);
-        }
-
         for (double i = scanResult.levelRange.min; i <= scanResult.levelRange.max; i += 0.5) {
             getSingleLevelIVPossibility(scanResult, i);
         }
