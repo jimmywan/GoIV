@@ -308,8 +308,7 @@ public class ScanResult {
         ivPercentLow = 100;
 
         for (IVCombination ivc : iVCombinations) {
-            int sumIV = ivc.att + ivc.def + ivc.sta;
-            int percentPerfect = Math.round(sumIV / 45f * 100);
+            int percentPerfect = Math.round(ivc.percentPerfect);
 
             if (ivc.att < ivAttackLow) {
                 ivAttackLow = ivc.att;
