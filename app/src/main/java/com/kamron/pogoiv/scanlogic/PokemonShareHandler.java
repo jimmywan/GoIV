@@ -41,7 +41,7 @@ public class PokemonShareHandler {
             jsonPokemon.put("estimatedPokemonLevel", Pokefly.scanResult.levelRange.min);
             jsonPokemon.put("estimatedPokemonLevelMax", Pokefly.scanResult.levelRange.max);
             PokeInfoCalculator calc = PokeInfoCalculator.getInstance();
-            jsonPokemon.put("candyName", calc.getEvolutionLine(Pokefly.scanResult.pokemon).get(0));
+            jsonPokemon.put("candyName", calc.getCandyPokemons().get(Pokefly.scanResult.pokemon.number).name);
 
             JSONArray jsonCombinations = new JSONArray();
             for (int i = 0; i <  Pokefly.scanResult.getIVCombinationsCount(); i++) {
