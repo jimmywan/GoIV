@@ -118,7 +118,7 @@ public class InputFraction extends Fraction {
         pokemonCPEdit.setText(optionalIntToString(Pokefly.scanData.getPokemonCP()));
         pokemonCandyEdit.setText(optionalIntToString(Pokefly.scanData.getPokemonCandyAmount()));
 
-        adjustArcPointerBar(Pokefly.scanData.getEstimatedPokemonLevel().min);
+        updateAllLevels();
 
         showCandyTextBoxBasedOnSettings();
     }
@@ -189,16 +189,21 @@ public class InputFraction extends Fraction {
         pokeInputSpinner.setVisibility(View.VISIBLE);
     }
 
-    private void adjustArcPointerBar(double estimatedPokemonLevel) {
-        pokefly.setArcPointer(estimatedPokemonLevel);
-        arcAdjustBar.setProgress(Data.maxPokeLevelToIndex(estimatedPokemonLevel));
+    private void updateAllLevels() {
+        arcAdjustBar.setProgress(Data.maxPokeLevelToIndex(Pokefly.scanData.getEstimatedPokemonLevel().min));
+        updateLevelLabelAndArc();
+    }
+
+    private void updateLevelLabelAndArc() {
+        pokefly.setArcPointer(Pokefly.scanData.getEstimatedPokemonLevel().min);
+        levelIndicator.setText(Pokefly.scanData.getEstimatedPokemonLevel().toString());
     }
 
     @OnClick(R.id.btnDecrementLevel)
     public void decrementLevel() {
         if (Pokefly.scanData.getEstimatedPokemonLevel().min > Data.MINIMUM_POKEMON_LEVEL) {
             Pokefly.scanData.getEstimatedPokemonLevel().dec();
-            adjustArcPointerBar(Pokefly.scanData.getEstimatedPokemonLevel().min);
+            updateAllLevels();
         }
     }
 
@@ -206,7 +211,7 @@ public class InputFraction extends Fraction {
     public void incrementLevel() {
         if (Data.maxPokeLevelToIndex(Pokefly.scanData.getEstimatedPokemonLevel().min) < arcAdjustBar.getMax()) {
             Pokefly.scanData.getEstimatedPokemonLevel().inc();
-            adjustArcPointerBar(Pokefly.scanData.getEstimatedPokemonLevel().min);
+            updateAllLevels();
         }
     }
 
@@ -223,9 +228,8 @@ public class InputFraction extends Fraction {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
                     Pokefly.scanData.setEstimatedPokemonLevelRange(new LevelRange(Data.levelIdxToLevel(progress)));
+                    updateLevelLabelAndArc();
                 }
-                pokefly.setArcPointer(Pokefly.scanData.getEstimatedPokemonLevel().min);
-                levelIndicator.setText(Pokefly.scanData.getEstimatedPokemonLevel().toString());
             }
 
             @Override
