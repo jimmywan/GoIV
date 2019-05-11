@@ -62,6 +62,9 @@ public class TokensShowcaseAdapter extends RecyclerView.Adapter<RecyclerView.Vie
             this.evolvedVariant = evolvedVariant;
             rebuildDataSet();
             notifyDataSetChanged();
+            if (onTokenSelectedListener != null) {
+                onTokenSelectedListener.onTokenSelected(getToken(selectedPosition), selectedPosition);
+            }
         }
     }
 
