@@ -27,6 +27,8 @@ import butterknife.OnCheckedChanged;
 import butterknife.OnClick;
 import butterknife.OnTouch;
 
+import java.util.Set;
+
 import static com.kamron.pogoiv.GoIVSettings.APPRAISAL_WINDOW_POSITION;
 
 
@@ -297,87 +299,86 @@ public class AppraisalFraction extends MovableFraction implements AppraisalManag
         return super.onTouch(v, event);
     }
 
+    private void setIVRange(boolean checked, AppraisalManager.IVSumRange sumRange) {
+        if (checked) {
+            appraisalManager.appraisalIVSumRange = sumRange;
+            updateIVPreviewInButton();
+        }
+    }
+
+    private void setStatRange(boolean checked, AppraisalManager.IVValueRange statRange) {
+        if (checked) {
+            appraisalManager.appraisalHighestStatValueRange = statRange;
+            updateIVPreviewInButton();
+        }
+    }
+
+    private <T> void updateSet(boolean checked, Set<T> set, T value) {
+        if (checked) {
+            set.add(value);
+        } else {
+            set.remove(value);
+        }
+        updateIVPreviewInButton();
+    }
+
+    private void updateHighestStat(boolean checked, AppraisalManager.HighestStat highestStat) {
+        updateSet(checked, appraisalManager.highestStats, highestStat);
+    }
+
     @OnCheckedChanged(R.id.appraisalIVRange1)
     void onIVRange1(boolean checked) {
-        if (checked) {
-            appraisalManager.appraisalIVSumRange = AppraisalManager.IVSumRange.RANGE_37_45;
-        }
+        setIVRange(checked, AppraisalManager.IVSumRange.RANGE_37_45);
     }
 
     @OnCheckedChanged(R.id.appraisalIVRange2)
     void onIVRange2(boolean checked) {
-        if (checked) {
-            appraisalManager.appraisalIVSumRange = AppraisalManager.IVSumRange.RANGE_30_36;
-        }
+        setIVRange(checked, AppraisalManager.IVSumRange.RANGE_30_36);
     }
 
     @OnCheckedChanged(R.id.appraisalIVRange3)
     void onIVRange3(boolean checked) {
-        if (checked) {
-            appraisalManager.appraisalIVSumRange = AppraisalManager.IVSumRange.RANGE_23_29;
-        }
+        setIVRange(checked, AppraisalManager.IVSumRange.RANGE_23_29);
     }
 
     @OnCheckedChanged(R.id.appraisalIVRange4)
     void onIVRange4(boolean checked) {
-        if (checked) {
-            appraisalManager.appraisalIVSumRange = AppraisalManager.IVSumRange.RANGE_0_22;
-        }
+        setIVRange(checked, AppraisalManager.IVSumRange.RANGE_0_22);
     }
 
     @OnCheckedChanged(R.id.attCheckbox)
     void attChecked(boolean checked) {
-        if (checked) {
-            appraisalManager.highestStats.add(AppraisalManager.HighestStat.ATK);
-        } else {
-            appraisalManager.highestStats.remove(AppraisalManager.HighestStat.ATK);
-        }
+        updateHighestStat(checked, AppraisalManager.HighestStat.ATK);
     }
 
     @OnCheckedChanged(R.id.defCheckbox)
     void defChecked(boolean checked) {
-        if (checked) {
-            appraisalManager.highestStats.add(AppraisalManager.HighestStat.DEF);
-        } else {
-            appraisalManager.highestStats.remove(AppraisalManager.HighestStat.DEF);
-        }
+        updateHighestStat(checked, AppraisalManager.HighestStat.DEF);
     }
 
     @OnCheckedChanged(R.id.staCheckbox)
     void staChecked(boolean checked) {
-        if (checked) {
-            appraisalManager.highestStats.add(AppraisalManager.HighestStat.STA);
-        } else {
-            appraisalManager.highestStats.remove(AppraisalManager.HighestStat.STA);
-        }
+        updateHighestStat(checked, AppraisalManager.HighestStat.STA);
     }
 
     @OnCheckedChanged(R.id.appraisalStat1)
     void onStatRange1(boolean checked) {
-        if (checked) {
-            appraisalManager.appraisalHighestStatValueRange = AppraisalManager.IVValueRange.RANGE_15;
-        }
+        setStatRange(checked, AppraisalManager.IVValueRange.RANGE_15);
     }
 
     @OnCheckedChanged(R.id.appraisalStat2)
     void onStatRange2(boolean checked) {
-        if (checked) {
-            appraisalManager.appraisalHighestStatValueRange = AppraisalManager.IVValueRange.RANGE_13_14;
-        }
+        setStatRange(checked, AppraisalManager.IVValueRange.RANGE_13_14);
     }
 
     @OnCheckedChanged(R.id.appraisalStat3)
     void onStatRange3(boolean checked) {
-        if (checked) {
-            appraisalManager.appraisalHighestStatValueRange = AppraisalManager.IVValueRange.RANGE_8_12;
-        }
+        setStatRange(checked, AppraisalManager.IVValueRange.RANGE_8_12);
     }
 
     @OnCheckedChanged(R.id.appraisalStat4)
     void onStatRange4(boolean checked) {
-        if (checked) {
-            appraisalManager.appraisalHighestStatValueRange = AppraisalManager.IVValueRange.RANGE_0_7;
-        }
+        setStatRange(checked, AppraisalManager.IVValueRange.RANGE_0_7);
     }
 
     @OnClick(R.id.eggRaidText)
@@ -387,11 +388,7 @@ public class AppraisalFraction extends MovableFraction implements AppraisalManag
 
     @OnCheckedChanged(R.id.eggRaidSwitch)
     void onEggOrRaid(boolean checked) {
-        if (checked) {
-            appraisalManager.statModifiers.add(AppraisalManager.StatModifier.EGG_OR_RAID);
-        } else {
-            appraisalManager.statModifiers.remove(AppraisalManager.StatModifier.EGG_OR_RAID);
-        }
+        updateSet(checked, appraisalManager.statModifiers, AppraisalManager.StatModifier.EGG_OR_RAID);
     }
 
     @OnClick({R.id.statsButton})
