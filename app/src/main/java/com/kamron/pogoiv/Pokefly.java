@@ -28,6 +28,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.animation.AnimationUtils;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -547,10 +548,7 @@ public class Pokefly extends Service {
         deleteScreenShotIfRequired();
 
         //noinspection ConstantConditions
-        scanResult = new ScanResult(nameCorrector, scanData);
-
-        pokeInfoCalculator.getIVPossibilities(scanResult);
-        scanResult.refineWithAvailableInfoFrom(appraisalManager);
+        scanResult = computeIVWithoutUIChange();
 
         // Don't run clipboard logic if scan failed - some tokens might crash the program.
         if (scanResult.getIVCombinationsCount() > 0) {
@@ -572,6 +570,17 @@ public class Pokefly extends Service {
             scanReturner.refineWithAvailableInfoFrom(appraisalManager);
         }
         return scanReturner;
+    }
+
+    public void updateIVButton(Button button) {
+        ScanResult scanResult;
+        try {
+            scanResult = computeIVWithoutUIChange();
+        } catch (IllegalStateException e) {
+            return;
+        }
+        String ivString = scanResult.getIVString();
+        button.setText(ivString + " | More info");
     }
 
     /**

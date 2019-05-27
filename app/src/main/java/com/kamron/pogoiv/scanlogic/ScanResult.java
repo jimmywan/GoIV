@@ -466,4 +466,20 @@ public class ScanResult {
         updateHighAndLowValues();
     }
 
+    public String getIVString() {
+        IVCombination lowest = getLowestIVCombination();
+        if (lowest == null) {
+            return "?";
+        } else if (iVCombinations.size() == 1) {
+            return lowest.percentPerfect + "% (" + lowest.att + ":" + lowest.def + ":" + lowest.sta + ")";
+        } else {
+            IVCombination highest = getHighestIVCombination();
+            if (lowest.percentPerfect == highest.percentPerfect) {
+                return lowest.percentPerfect + "%";
+            } else {
+                return lowest.percentPerfect + "% - " + highest.percentPerfect + "%";
+            }
+        }
+    }
+
 }
