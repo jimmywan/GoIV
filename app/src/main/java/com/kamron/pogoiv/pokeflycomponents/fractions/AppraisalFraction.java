@@ -161,6 +161,11 @@ public class AppraisalFraction extends MovableFraction implements AppraisalManag
     }
 
     @Override
+    public void onCreated() {
+        updateIVPreviewInButton();
+    }
+
+    @Override
     public void onDestroy() {
         appraisalManager.removeOnAppraisalEventListener(this);
         GUIColorFromPokeType.getInstance().removeListener(this);
@@ -196,7 +201,6 @@ public class AppraisalFraction extends MovableFraction implements AppraisalManag
                 appraisalIVRangeGroup.clearCheck();
                 break;
         }
-        updateIVPreviewInButton();
     }
 
     @Override
@@ -214,7 +218,6 @@ public class AppraisalFraction extends MovableFraction implements AppraisalManag
             default:
                 break;
         }
-        updateIVPreviewInButton();
     }
 
     @Override
@@ -237,7 +240,6 @@ public class AppraisalFraction extends MovableFraction implements AppraisalManag
                 appraisalStatsGroup.clearCheck();
                 break;
         }
-        updateIVPreviewInButton();
     }
 
     private void selectStatModifier(AppraisalManager.StatModifier modifier) {
@@ -251,7 +253,6 @@ public class AppraisalFraction extends MovableFraction implements AppraisalManag
             default:
                 break;
         }
-        updateIVPreviewInButton();
     }
 
     /**
@@ -277,32 +278,31 @@ public class AppraisalFraction extends MovableFraction implements AppraisalManag
      * Update the text on the 'next' button to indicate quick IV overview
      */
     private void updateIVPreviewInButton() {
+        if (isCreated()) {
+            try {
+                ScanResult scanResult = pokefly.computeIVWithoutUIChange();
 
-        try {
-            ScanResult scanResult = pokefly.computeIVWithoutUIChange();
-
-            int possibleIVs = scanResult.getIVCombinations().size();
-            //btnCheckIv.setEnabled(possibleIVs != 0);
-            if (possibleIVs == 0) {
-                btnCheckIv.setText("?");
-            } else {
-                if (scanResult.getIVCombinations().size() == 1) {
-                    IVCombination result = scanResult.getIVCombinations().get(0);
-                    btnCheckIv.setText(result.percentPerfect + "% (" + result.att + ":" + result.def + ":" + result.sta + ") | More info");
-                } else if (scanResult.getLowestIVCombination().percentPerfect == scanResult
-                        .getHighestIVCombination().percentPerfect) {
-                    btnCheckIv.setText(scanResult.getLowestIVCombination().percentPerfect + "% | More info");
+                int possibleIVs = scanResult.getIVCombinations().size();
+                //btnCheckIv.setEnabled(possibleIVs != 0);
+                if (possibleIVs == 0) {
+                    btnCheckIv.setText("?");
                 } else {
-                    btnCheckIv.setText(scanResult.getLowestIVCombination().percentPerfect + "% - " + scanResult
-                            .getHighestIVCombination().percentPerfect + "% | More info");
+                    if (scanResult.getIVCombinations().size() == 1) {
+                        IVCombination result = scanResult.getIVCombinations().get(0);
+                        btnCheckIv.setText(result.percentPerfect + "% (" + result.att + ":" + result.def + ":" + result.sta + ") | More info");
+                    } else if (scanResult.getLowestIVCombination().percentPerfect == scanResult
+                            .getHighestIVCombination().percentPerfect) {
+                        btnCheckIv.setText(scanResult.getLowestIVCombination().percentPerfect + "% | More info");
+                    } else {
+                        btnCheckIv.setText(scanResult.getLowestIVCombination().percentPerfect + "% - " + scanResult
+                                .getHighestIVCombination().percentPerfect + "% | More info");
+                    }
+
                 }
-
+            } catch (IllegalStateException e) {
+                //Couldnt compute a valid scanresult. This is most likely due to missing HP / CP values
             }
-        } catch (IllegalStateException e) {
-            //Couldnt compute a valid scanresult. This is most likely due to missing HP / CP values
         }
-
-
     }
 
     /**

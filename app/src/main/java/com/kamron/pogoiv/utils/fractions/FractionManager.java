@@ -44,8 +44,7 @@ public class FractionManager {
         remove();
 
         View fractionRootView = addFractionView(fraction);
-        fraction.setFractionManager(this);
-        fraction.onCreate(fractionRootView);
+        fraction.create(fractionRootView, this);
         currentFraction = fraction;
 
         layoutParams.gravity = currentFraction.getAnchor().getGravity();

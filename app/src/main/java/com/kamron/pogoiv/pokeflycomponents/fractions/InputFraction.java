@@ -94,11 +94,6 @@ public class InputFraction extends Fraction implements ReactiveColorListener {
     private Pokefly pokefly;
     private PokeInfoCalculator pokeInfoCalculator;
 
-    //since the fragment calls onchanged, ontextchanged etc methods on fragment creation, the
-    //fragment will update and calculate the pokemon several times when the ui is created.
-    //To prevent this, this boolean stops any calculation, until its set to true.
-    private boolean isInitiated = false;
-
     public InputFraction(@NonNull Pokefly pokefly) {
         this.pokefly = pokefly;
         this.pokeInfoCalculator = PokeInfoCalculator.getInstance();
@@ -163,11 +158,12 @@ public class InputFraction extends Fraction implements ReactiveColorListener {
 
         GUIColorFromPokeType.getInstance().setListenTo(this);
         updateGuiColors();
-        isInitiated = true;
-        updateIVInputFractionPreview();
     }
 
-
+    @Override
+    public void onCreated() {
+        updateIVInputFractionPreview();
+    }
 
     @Override
     public void onDestroy() {
@@ -186,7 +182,7 @@ public class InputFraction extends Fraction implements ReactiveColorListener {
     }
 
     private void saveToPokefly() {
-        if (isInitiated){
+        if (isCreated()) {
             final String hp = pokemonHPEdit.getText().toString();
             if (!Strings.isNullOrEmpty(hp)) {
                 try {
@@ -267,7 +263,7 @@ public class InputFraction extends Fraction implements ReactiveColorListener {
      * Update the text on the 'next' button to indicate quick IV overview
      */
     private void updateIVInputFractionPreview() {
-        if(isInitiated){
+        if (isCreated()) {
             saveToPokefly();
 
             try {

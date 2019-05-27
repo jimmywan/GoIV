@@ -11,6 +11,7 @@ import android.view.View;
 public abstract class Fraction {
 
     FractionManager fractionManager;
+    private boolean isCreated = false;
 
     public enum Anchor {
         TOP(Gravity.TOP),
@@ -27,9 +28,21 @@ public abstract class Fraction {
         }
     }
 
+    public final void create(@NonNull View rootView, @Nullable FractionManager fractionManager) {
+        isCreated = false;
+        this.fractionManager = fractionManager;
+        onCreate(rootView);
+        isCreated = true;
+        onCreated();
+    }
+
     public abstract @LayoutRes int getLayoutResId();
 
     public abstract void onCreate(@NonNull View rootView);
+
+    public void onCreated() {
+
+    }
 
     public abstract void onDestroy();
 
@@ -47,8 +60,7 @@ public abstract class Fraction {
      */
     public abstract int getVerticalOffset(@NonNull DisplayMetrics displayMetrics);
 
-    public void setFractionManager(@Nullable FractionManager fractionManager) {
-        this.fractionManager = fractionManager;
+    public boolean isCreated() {
+        return this.isCreated;
     }
-
 }
