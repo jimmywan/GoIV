@@ -3,6 +3,7 @@ package com.kamron.pogoiv.widgets;
 import android.content.Context;
 import android.graphics.Color;
 import android.support.constraint.ConstraintLayout;
+import android.support.v4.content.ContextCompat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -93,6 +94,7 @@ public class PokemonSpinnerAdapter extends ArrayAdapter<Pokemon> {
         */
 
         TextView row = (TextView) inflater.inflate(android.R.layout.simple_spinner_item, parent, false);
+        row.setTextColor(ContextCompat.getColor(context, R.color.colorPrimary));
 
         Pokemon pokemon = pokemons.get(position);
         row.setText(pokemon.toString() + "  ▼");
