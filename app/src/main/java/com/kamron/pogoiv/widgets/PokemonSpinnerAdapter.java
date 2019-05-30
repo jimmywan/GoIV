@@ -11,10 +11,13 @@ import android.widget.TextView;
 
 import com.kamron.pogoiv.R;
 import com.kamron.pogoiv.scanlogic.Pokemon;
+import lombok.AllArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Spinner formatter.
@@ -49,22 +52,112 @@ public class PokemonSpinnerAdapter extends ArrayAdapter<Pokemon> {
 
     }
 
+    private static class GeneralFormNameComparator implements Comparator<Pokemon> {
+
+        public static final GeneralFormNameComparator INSTANCE = new GeneralFormNameComparator();
+
+        @Override
+        public int compare(Pokemon p1, Pokemon p2) {
+            // First: Normal forms appear first, Boolean.compare() sorts "false" before "true": invert it directly.
+            int sort = Boolean.compare(p2.isNormalForm, p1.isNormalForm);
+            if (sort != 0) {
+                return sort;
+            }
+            // Then sort alphabetically the form names
+            return p1.formName.compareTo(p2.formName);
+        }
+    }
+
+    @AllArgsConstructor
+    private static class SpecificFormNameComparator extends GeneralFormNameComparator {
+
+        private final String internalFormName;
+
+        public static void sort(ArrayList<Pokemon> list) {
+            if (!list.isEmpty()) {
+                Collections.sort(list, new SpecificFormNameComparator(list.get(0).internalFormName));
+            }
+        }
+
+        @Override
+        public int compare(Pokemon p1, Pokemon p2) {
+            boolean match1 = p1.internalFormName.equals(internalFormName);
+            boolean match2 = p2.internalFormName.equals(internalFormName);
+            int sort = Boolean.compare(match2, match1);
+            if (sort == 0) {
+                return super.compare(p1, p2);
+            }
+            // Only if all of them are indifferent, sort them using the pokedex number.
+            return p1.number - p2.number;
+        }
+    }
+
+    private static void addEvolutions(Pokemon pokemon, ArrayList<Pokemon> source, ArrayList<Pokemon> list) {
+        list.add(pokemon);
+        for (Pokemon evolution : pokemon.evolutions) {
+            int index = source.indexOf(evolution);
+            if (index >= 0) {
+                addEvolutions(source.remove(index), source, list);
+            }
+        }
+    }
+
     /**
-     * Sorts the pokemon based on forms, and pokedex number as secondary sorting
-     * @param list
-     * @return
+     * Sorts the given list to group them by the forms, listing the normal form first and then alphabetically the rest.
+     * Each group is then sorted by their "evolution depth" and lastly the pokedex number. Some evolutions have a lower
+     * pokedex number (Munchlax (446) and Snorlax (143)) while others have multiple numbers for the same evolution depth
+     * (the Eeveelutions).
+     *
+     * @param list The list which needs to be sorted.
+     * @return A copy of the list sorted according to the mentioned rules.
      */
     private ArrayList<Pokemon> sortByForms(ArrayList<Pokemon> list) {
-        ArrayList<Pokemon> returnerList = new ArrayList<Pokemon>(list);
-        Collections.sort(returnerList, new Comparator<Pokemon>() {
-            @Override public int compare(Pokemon p1, Pokemon p2) {
-                int formSort = p2.formName.compareTo(p1.formName);
-                if (formSort == 0){ //Same form, sort by dex number
-                    return p1.number-p2.number;
+        if (list.isEmpty()) {
+            return new ArrayList<>();
+        }
+        // Create a map for all forms, which we are going to assign the pokemons to
+        Map<String, ArrayList<Pokemon>> formNames = new HashMap<>();
+        // Also store a sample pokemon for each form, to have an order of the forms before filling them
+        ArrayList<Pokemon> formSamples = new ArrayList<>();
+        for (Pokemon pokemon : list) {
+            if (!formNames.containsKey(pokemon.internalFormName)) {
+                formNames.put(pokemon.internalFormName, new ArrayList<Pokemon>());
+                formSamples.add(pokemon);
+            }
+        }
+        Collections.sort(formSamples, GeneralFormNameComparator.INSTANCE);
+        final ArrayList<String> formOrder = new ArrayList<>(formSamples.size());
+        for (Pokemon y : formSamples) {
+            formOrder.add(y.internalFormName);
+        }
+        // Now sort the pokemons by the evolution depth, this means we can get each pokemon and add its evolutions and
+        // the first will be the lowest of that form.
+        ArrayList<Pokemon> depthSorted = new ArrayList<>(list);
+        Collections.sort(depthSorted, new Comparator<Pokemon>() {
+            @Override
+            public int compare(Pokemon p1, Pokemon p2) {
+                int sort = Integer.compare(p1.base.getEvolutionDepth(), p2.base.getEvolutionDepth());
+                if (sort != 0) {
+                    return sort;
                 }
-                return formSort;
+                return Integer.compare(formOrder.indexOf(p1.internalFormName), formOrder.indexOf(p2.internalFormName));
             }
         });
+        // Now go through the list until it's empty, remove the first element and add it's evolutions to the given form.
+        // When it goes through the evolutions, it is also removing those from the list. So (with the sorting from) the
+        // first element is the lowest evolution, of that branch.
+        while (!depthSorted.isEmpty()) {
+            Pokemon pokemon = depthSorted.remove(0);
+            addEvolutions(pokemon, depthSorted, formNames.get(pokemon.internalFormName));
+        }
+        // Now reconstruct the original list, by going through each "root" and adding the complete list associated to
+        // it. Of course we need to sort them too, if it has multiple form names.
+        ArrayList<Pokemon> returnerList = new ArrayList<>(list.size());
+        for (String formName : formOrder) {
+            ArrayList<Pokemon> evolved = formNames.get(formName);
+            SpecificFormNameComparator.sort(evolved);
+            returnerList.addAll(evolved);
+        }
         return returnerList;
     }
 
