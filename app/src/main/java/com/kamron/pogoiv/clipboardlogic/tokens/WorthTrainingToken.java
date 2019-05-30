@@ -93,7 +93,7 @@ public class WorthTrainingToken extends ClipboardToken {
         while (!toVisit.isEmpty()) {
             final Pokemon pokemon = toVisit.pop();
             max = Math.max(max, normalizedResult(pokemon, iv));
-            toVisit.addAll(pokemon.getEvolutions());
+            toVisit.addAll(pokemon.evolutions);
         }
         return max;
     }

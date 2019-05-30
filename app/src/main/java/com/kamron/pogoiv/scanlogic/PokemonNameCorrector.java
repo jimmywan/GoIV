@@ -46,15 +46,14 @@ public class PokemonNameCorrector {
         this.normalizedPokemonNameMap = pokemap;
         this.res = context.getResources();
 
-        nidoFemale = StringUtils.normalize(pokeInfoCalculator.get(28).name);
-        nidoMale = StringUtils.normalize(pokeInfoCalculator.get(31).name);
+        nidoFemale = StringUtils.normalize(pokeInfoCalculator.get(PokeInfoCalculator.NIDORAN_FEMALE).name);
+        nidoMale = StringUtils.normalize(pokeInfoCalculator.get(PokeInfoCalculator.NIDORAN_MALE).name);
         nidoUngendered = nidoFemale.replace("♀", "").toLowerCase();
 
         // create and cache the normalized pokemon type locale name
         this.normalizedTypeNames = new EnumMap<>(Pokemon.Type.class);
-        for (int i = 0; i < res.getStringArray(R.array.typeName).length; i++) {
-            this.normalizedTypeNames.put(Pokemon.Type.values()[i],
-                    StringUtils.normalize(res.getStringArray(R.array.typeName)[i]));
+        for (PokeInfoCalculator.TranslatedType type : this.pokeInfoCalculator.getTypes()) {
+            this.normalizedTypeNames.put(type.internalType, StringUtils.normalize(type.name));
         }
 
         // create and cache the candy pokemons collection with normalized their names as keys
@@ -115,30 +114,30 @@ public class PokemonNameCorrector {
 
         //3.  check correction for abnormal pokemon using Pokemon Type (such as eevees evolutions)
         if (guess.pokemon == null
-                && normalizedCandyName.contains(StringUtils.normalize(pokeInfoCalculator.get(132).name))) {
+                && normalizedCandyName.contains(StringUtils.normalize(pokeInfoCalculator.get(PokeInfoCalculator.EEVEE).name))) {
             HashMap<String, Integer> eeveelutionCorrection = new HashMap<>();
-            eeveelutionCorrection.put(normalizePokemonType(Type.WATER), 133); //Vaporeon pokedex#
-            eeveelutionCorrection.put(normalizePokemonType(Type.ELECTRIC), 134); //Jolteon pokedex#
-            eeveelutionCorrection.put(normalizePokemonType(Type.FIRE), 135); //Flareon pokedex#
-            eeveelutionCorrection.put(normalizePokemonType(Type.PSYCHIC), 195); //Espeon pokedex#
-            eeveelutionCorrection.put(normalizePokemonType(Type.DARK),196); //Umbreon pokedex#
-            eeveelutionCorrection.put(normalizePokemonType(Type.GRASS), 469); //Leafeon pokedex#
-            eeveelutionCorrection.put(normalizePokemonType(Type.ICE), 470); //Glaceon pokedex#
-            // eeveelutionCorrection.put(normalizePokemonType(Type.FAIRY), 699); //Sylveon pokedex#
+            eeveelutionCorrection.put(normalizePokemonType(Type.WATER), PokeInfoCalculator.VAPOREON);
+            eeveelutionCorrection.put(normalizePokemonType(Type.ELECTRIC), PokeInfoCalculator.JOLTEON);
+            eeveelutionCorrection.put(normalizePokemonType(Type.FIRE), PokeInfoCalculator.FLAREON);
+            eeveelutionCorrection.put(normalizePokemonType(Type.PSYCHIC), PokeInfoCalculator.ESPEON);
+            eeveelutionCorrection.put(normalizePokemonType(Type.DARK), PokeInfoCalculator.UMBREON);
+            eeveelutionCorrection.put(normalizePokemonType(Type.GRASS), PokeInfoCalculator.LEAFEON);
+            eeveelutionCorrection.put(normalizePokemonType(Type.ICE), PokeInfoCalculator.GLACEON);
+            // eeveelutionCorrection.put(normalizePokemonType(TranslatedType.FAIRY), PokeInfoCalculator.SYLVEON);
             if (eeveelutionCorrection.containsKey(scanData.getNormalizedPokemonType())) {
-                int eeveelutionPokedexId = eeveelutionCorrection.get(scanData.getNormalizedPokemonType());
-                guess = new PokeDist(pokeInfoCalculator.getForm(eeveelutionPokedexId), 0);
+                PokemonBase base = pokeInfoCalculator.get(eeveelutionCorrection.get(scanData.getNormalizedPokemonType()));
+                guess = new PokeDist(base.getForm(), 0);
             }
         }
 
         //3.1 Azuril and marill have the same evolution cost, but different types.
-        if (normalizedCandyName.contains(StringUtils.normalize(pokeInfoCalculator.get(182).name))
+        if (normalizedCandyName.contains(StringUtils.normalize(pokeInfoCalculator.get(PokeInfoCalculator.MARILL).name))
                 && (scanData.getEvolutionCandyCost().or(-1) != -1)) { //its not an azumarill
             //if the scanned data contains the type water, it must be a marill, as azurill is normal type.
             if (scanData.getNormalizedPokemonType().contains(normalizePokemonType(Type.WATER))) {
-                guess = new PokeDist(pokeInfoCalculator.getForm(182), 0); //marill
+                guess = new PokeDist(pokeInfoCalculator.get(PokeInfoCalculator.MARILL).getForm(), 0);
             } else {
-                guess = new PokeDist(pokeInfoCalculator.getForm(297), 0); //azurill
+                guess = new PokeDist(pokeInfoCalculator.get(PokeInfoCalculator.AZURILL).getForm(), 0);
             }
         }
 
@@ -291,7 +290,9 @@ public class PokemonNameCorrector {
 
     private PokeDist checkAlolanVariant(PokeDist guess, ScanData scanData) {
         try {
-            switch (guess.pokemon.number) {
+            // TODO: Hack for now, as the number is now the real one, should use the type information in the future
+            //       to assign the different forms dynamically.
+            switch (guess.pokemon.number - 1) {
                 case (102): // Exeggutor (dex 103)
                     // check types including dragon
                     return createFormPokeDist(guess, scanData, Type.DRAGON, 1);

@@ -25,7 +25,7 @@ public class PokemonShareHandler {
     public void spreadResultIntent(Context context) {
         JSONObject jsonPokemon = new JSONObject();
         try {
-            jsonPokemon.put("PokemonId", Pokefly.scanResult.pokemon.number + 1);
+            jsonPokemon.put("PokemonId", Pokefly.scanResult.pokemon.number);
             jsonPokemon.put("AtkMin", Pokefly.scanResult.getIVAttackLow());
             jsonPokemon.put("AtkMax", Pokefly.scanResult.getIVAttackHigh());
             jsonPokemon.put("DefMin", Pokefly.scanResult.getIVDefenseLow());

@@ -18,13 +18,14 @@ public class PokemonBase {
      */
     public final List<PokemonBase> evolutions;
 
-
     /**
      * Forms of this Pokemon. (Such as Alolan forms.)
      * This list dose not include the normal form.
      * The normal form pokemon is this pokemon itself.
      */
     public final List<Pokemon> forms;
+
+    public final String internalName;
 
     /**
      * Pokemon name for OCR, this is what you saw in PokemonGo app.
@@ -36,18 +37,20 @@ public class PokemonBase {
      */
     public final String displayName;
 
-    public final int number; //index number in resources, pokedex number - 1
-    public final int devoNumber;
+    public final int number;
     public final int candyEvolutionCost;
+    public final boolean hasMultipleForms;
+    public PokemonBase devolution;
 
-    public PokemonBase(String name, String displayName, int number, int devoNumber, int candyEvolutionCost) {
+    public PokemonBase(String internalName, String name, String displayName, int number, int candyEvolutionCost, boolean hasMultipleForms) {
+        this.internalName = internalName;
         this.name = name;
         this.displayName = displayName;
         this.number = number;
-        this.devoNumber = devoNumber;
         this.evolutions = new ArrayList<>();
         this.forms = new ArrayList<>();
         this.candyEvolutionCost = candyEvolutionCost;
+        this.hasMultipleForms = hasMultipleForms;
     }
 
     @Override
@@ -64,18 +67,18 @@ public class PokemonBase {
         return null;
     }
 
-    public Pokemon getForm(@NonNull Pokemon otherForm) {
-        // If either of them have only one form, but the other doesn't, it cannot match the forms with the String
-        // version, because the "normal" form uses different names when there are multiple and when there aren't.
-        // In that case return the first one, which can be done in any case if this base has multiple forms (because
-        // then we know that the other form is the single one). But if the other form has multiple forms it also needs
-        // to verify that the other form is actually the first one.
-        if ((otherForm.base.forms.size() == 1 && forms.size() > 1)
-                || (forms.size() == 1 && otherForm.base.forms.size() > 1 && otherForm.base.forms.get(0) == otherForm)) {
-            return forms.get(0);
-        } else {
-            return getForm(otherForm.formName);
+    public Pokemon getForm() {
+        if (forms.size() != 1) {
+            throw new IllegalArgumentException(String.format("There is no 'single' form for %s", name));
         }
+        return forms.get(0);
+    }
 
+    public int getEvolutionDepth() {
+        if (devolution != null) {
+            return devolution.getEvolutionDepth() + 1;
+        } else {
+            return 0;
+        }
     }
 }

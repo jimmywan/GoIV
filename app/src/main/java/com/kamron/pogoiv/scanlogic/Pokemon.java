@@ -13,6 +13,8 @@ import java.util.List;
 
 public class Pokemon {
 
+    public static final String NORMAL_FORM = "NORMAL";
+
     public enum Gender {
         F("♀", "F"),
         M("♂", "M"),
@@ -61,6 +63,14 @@ public class Pokemon {
     }
 
     /**
+     * Evolutions of this Pokemon, sorted in alphabetical order.
+     * Try to avoid assumptions that only hold for Gen. I Pokemon: evolutions can have smaller
+     * Pokedex number, not be consecutive, etc.
+     */
+    public final List<Pokemon> evolutions;
+    public final List<Pokemon> devolutions;
+
+    /**
      * Pokemon name for OCR, this is what you saw in PokemonGo app.
      */
     public final String name;
@@ -72,30 +82,31 @@ public class Pokemon {
 
     public final PokemonBase base;
     public final String formName;
+    public final String internalFormName;
+    public final boolean isNormalForm;
     // Copy of the value in the base class
-    public final int number; //index number in resources, pokedex number - 1
+    public final int number;
     public final int baseAttack;
     public final int baseDefense;
     public final int baseStamina;
     // Copy of the value in the base class
-    public final int devoNumber;
-    // Copy of the value in the base class
     public final int candyEvolutionCost;
 
-    public Pokemon(PokemonBase base, @NonNull String formName, int baseAttack, int baseDefense, int baseStamina) {
+    public Pokemon(PokemonBase base, @NonNull String formName, @NonNull String internalFormName, int baseAttack, int baseDefense, int baseStamina) {
         this.base = base;
         this.formName = formName;
-        if (!formName.isEmpty()) {
-            formName = " - " + formName;
-        }
+        this.internalFormName = internalFormName;
+        this.isNormalForm = internalFormName.equals(NORMAL_FORM);
+        formName = base.hasMultipleForms ? " - " + formName : "";
         this.name = base.name + formName;
         this.displayName = base.displayName + formName;
         this.number = base.number;
         this.baseAttack = baseAttack;
         this.baseDefense = baseDefense;
         this.baseStamina = baseStamina;
-        this.devoNumber = base.devoNumber;
         this.candyEvolutionCost = base.candyEvolutionCost;
+        this.evolutions = new ArrayList<>();
+        this.devolutions = new ArrayList<>();
     }
 
     @Override
@@ -113,27 +124,33 @@ public class Pokemon {
      * @return true if evolution
      */
     public boolean isNextEvolutionOf(Pokemon otherPokemon) {
-        for (Pokemon evolution : otherPokemon.getEvolutions()) {
-            if (number == evolution.number) {
-                return true;
-            }
+        return otherPokemon.evolutions.contains(this);
+    }
+
+    private void addDevolutions(List<Pokemon> list) {
+        list.addAll(0, devolutions);
+        for (Pokemon devolution : devolutions) {
+            devolution.addDevolutions(list);
         }
-        return false;
+    }
+
+    private void addEvolutions(List<Pokemon> list) {
+        list.addAll(evolutions);
+        for (Pokemon evolution : evolutions) {
+            evolution.addEvolutions(list);
+        }
     }
 
     /**
-     * Evolutions of this Pokemon, sorted in alphabetical order.
-     * Try to avoid assumptions that only hold for Gen. I Pokemon: evolutions can have smaller
-     * Pokedex number, not be consecutive, etc.
+     * Returns the evolution line of this pokemon.
+     *
+     * @return a list with pokemon, input pokemon plus its (d)evolutions
      */
-    public List<Pokemon> getEvolutions() {
-        ArrayList<Pokemon> formEvolutions = new ArrayList<>();
-        for (PokemonBase evolvedBase : base.evolutions) {
-            Pokemon evolvedForm = evolvedBase.getForm(this);
-            if (evolvedForm != null) {
-                formEvolutions.add(evolvedForm);
-            }
-        }
-        return formEvolutions;
+    public ArrayList<Pokemon> getEvolutionLine() {
+        ArrayList<Pokemon> list = new ArrayList<>();
+        addDevolutions(list);
+        list.add(this);
+        addEvolutions(list);
+        return list;
     }
 }

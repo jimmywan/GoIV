@@ -24,7 +24,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.Map;
 
+import com.kamron.pogoiv.scanlogic.PokemonBase;
 import timber.log.Timber;
 
 /**
@@ -56,7 +58,7 @@ public class MovesetsManager {
     private MovesetsManager() {
     }
 
-    public static void init(final @NonNull Context context) {
+    public static void init(final @NonNull Context context, final @NonNull PokeInfoCalculator pokedex) {
         synchronized (initLock) {
             if (initialized) {
                 return;
@@ -77,7 +79,7 @@ public class MovesetsManager {
                 try {
                     jsonReader = new JsonReader(
                             new InputStreamReader(context.getAssets().open("movesets/movesets.json")));
-                    movesets = parseJson(context, jsonReader);
+                    movesets = parseJson(context, pokedex, jsonReader);
                 } catch (IOException e) {
                     Timber.e(e);
                 }
@@ -97,25 +99,11 @@ public class MovesetsManager {
     }
 
     private static SparseArrayCompat<LinkedHashSet<MovesetData>> parseJson(final Context context,
+                                                                           final @NonNull PokeInfoCalculator pokedex,
                                                                            JsonReader jsonReader) {
-
-        // Get lowercase english names
-        String[] enMonNamesArray = PokeInfoCalculator.getPokemonNamesArray(context.getResources());
-        ArrayList<String> enMonNamesList = new ArrayList<>();
-        for (int i = 0; i < enMonNamesArray.length; i++) {
-            final String upperCaseName;
-            switch (i) {
-                case 28: // Nidoran♀
-                    upperCaseName = "NIDORAN_FEMALE";
-                    break;
-                case 31: // Nidoran♂
-                    upperCaseName = "NIDORAN_MALE";
-                    break;
-                default:
-                    upperCaseName = enMonNamesArray[i].trim().toUpperCase();
-                    break;
-            }
-            enMonNamesList.add(upperCaseName.replaceAll("[^A-Z0-9]+", "_"));
+        Map<String, PokemonBase> pokeMap = new HashMap<>();
+        for (PokemonBase base : pokedex.getPokedex()) {
+            pokeMap.put(base.internalName, base);
         }
 
         Pair<HashMap<String, String>, HashMap<String, String>> translations = getTranslations(context);
@@ -137,11 +125,12 @@ public class MovesetsManager {
                 monName = monName.substring(0, underscoreIndex);
             }
 
-            int dexIndex = enMonNamesList.indexOf(monName);
-            if (dexIndex < 0) {
+
+            if (!pokeMap.containsKey(monName)) {
                 Timber.d("Can't find monster named %s", monName);
                 continue;
             }
+            int dexIndex = pokeMap.get(monName).number;
 
             //noinspection unchecked
             ArrayList<LinkedTreeMap<String, Object>> jsonMovesets

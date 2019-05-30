@@ -187,8 +187,8 @@ public class PowerUpFraction extends Fraction implements ReactiveColorListener {
         int spinnerSelectionIdx = extendedEvolutionSpinner.getSelectedItemPosition();
 
         if (spinnerSelectionIdx == -1) {
-            if (!scannedPokemon.getEvolutions().isEmpty()) {
-                scannedPokemon = scannedPokemon.getEvolutions().get(0);
+            if (!scannedPokemon.evolutions.isEmpty()) {
+                scannedPokemon = scannedPokemon.evolutions.get(0);
             }
             // This happens at the beginning or after changing the pokemon list.
             //if initialising list, act as if scanned pokemon is marked

@@ -2,41 +2,211 @@ package com.kamron.pogoiv.scanlogic;
 
 
 import android.content.Context;
-import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import android.util.SparseArray;
+import com.google.gson.Gson;
+import com.google.gson.stream.JsonReader;
 import com.kamron.pogoiv.GoIVSettings;
 import com.kamron.pogoiv.R;
+import lombok.AllArgsConstructor;
+import timber.log.Timber;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Created by Johan Swanberg on 2016-08-18.
  * A class which interprets pokemon information
  */
 public class PokeInfoCalculator {
+
+    // Some Pokedex numbers
+    public static final int EEVEE = 133;
+    public static final int VAPOREON = 134;
+    public static final int JOLTEON = 135;
+    public static final int FLAREON = 136;
+    public static final int ESPEON = 196;
+    public static final int UMBREON = 197;
+    public static final int LEAFEON = 470;
+    public static final int GLACEON = 471;
+    public static final int MARILL = 183;
+    public static final int AZURILL = 298;
+    public static final int NIDORAN_FEMALE = 29;
+    public static final int NIDORAN_MALE = 32;
+
+    @AllArgsConstructor
+    public static class TranslatedType {
+
+        public final Pokemon.Type internalType;
+        public final String name;
+
+    }
+
     private static PokeInfoCalculator instance;
 
-    private ArrayList<PokemonBase> pokedex = new ArrayList<>();
-    private List<Pokemon> formVariantPokemons;
-    private String[] pokeNamesWithForm = {};
+    private final List<PokemonBase> pokedex;
+    private final List<Pokemon> formVariantPokemons;
+    private final String[] pokeNamesWithForm;
+    private final List<TranslatedType> types;
 
     /**
      * Pokemons who's name appears as a type of candy.
      * For most, this is the basePokemon (ie: Pidgey candies)
      * For some, this is an original Gen1 Pokemon (ie: Magmar candies, instead of Magby candies)
      */
-    private ArrayList<PokemonBase> candyPokemons = new ArrayList<>();
+    private final List<PokemonBase> candyPokemons;
+
+    // Representation of each pokemon form entry in the JSON file
+    private static class PokemonEntry {
+        int baseAttack;
+        int baseDefense;
+        int baseStamina;
+        String[] types;
+        String form;
+        List<String> devolution;
+
+        transient Pokemon object;
+
+        public Pokemon create(BaseEntry base) {
+            Pokemon.Type[] types = new Pokemon.Type[this.types.length];
+            for (int i = 0; i < this.types.length; i++) {
+                types[i] = Pokemon.Type.valueOf(this.types[i]);
+            }
+            object = new Pokemon(base.object, base.names.getForm(form), form, baseAttack, baseDefense, baseStamina);
+            base.object.forms.add(object);
+            return object;
+        }
+    }
+
+    // Representation of each pokemon base entry in the JSON file
+    private static class BaseEntry {
+        int number;
+        String family;
+        String name;
+        Integer devolution;
+        PokemonEntry[] forms;
+        int candy;
+
+        transient PokemonBase object;
+        transient Names names;
+
+        public PokemonBase create(Names names, boolean hasMultiple) {
+            object = new PokemonBase(name, names.getName(number), names.getDisplayName(number), number, candy, hasMultiple);
+            this.names = names;
+            return object;
+        }
+
+        public List<Pokemon> createForms() {
+            List<Pokemon> formObjects = new ArrayList<>(forms.length);
+            for (PokemonEntry form : forms) {
+                formObjects.add(form.create(this));
+            }
+            return formObjects;
+        }
+    }
+
+    private static class NameEntry {
+        Map<Integer, String> names;
+        Map<String, String> forms;
+        Map<String, String> types;
+    }
+
+    private static class Names {
+
+        private final Map<Integer, String> names;
+        private final Map<Integer, String> displayNames;
+        private final Map<String, String> forms;
+        private final Map<String, TranslatedType> types;
+
+        public Names(@NonNull GoIVSettings settings, @NonNull Context context) {
+            NameEntry defaults = loadNames(context, "en");
+            if (defaults == null) {
+                throw new IllegalArgumentException("Couldn't load default names");
+            }
+            boolean useDefaultsOCR = context.getResources().getBoolean(R.bool.use_default_pokemonsname_as_ocrstring);
+            // Make a copy of each map in the translation, in case we actually have a translation. They would overwrite
+            // the default values, which would actually overwrite the default entries too.
+            NameEntry translation = new NameEntry();
+            translation.names = new HashMap<>(defaults.names);
+            translation.forms = new HashMap<>(defaults.forms);
+            translation.types = new HashMap<>(defaults.types);
+            if (!useDefaultsOCR || settings.isShowTranslatedPokemonName()) {
+                NameEntry actualNames = loadNames(context);
+                if (actualNames != null) {
+                    translation.names.putAll(actualNames.names);
+                    translation.forms.putAll(actualNames.forms);
+                    translation.types.putAll(actualNames.types);
+                }
+            }
+            names = (useDefaultsOCR ? defaults : translation).names;
+            displayNames = (settings.isShowTranslatedPokemonName() ? translation : defaults).names;
+            forms = translation.forms;
+            types = new HashMap<>();
+            for (String internalName : defaults.types.keySet()) {
+                types.put(internalName, new TranslatedType(Pokemon.Type.valueOf(internalName), translation.types.get(internalName)));
+            }
+        }
+
+        private static NameEntry loadNames(@NonNull Context context) {
+            Locale locale = getLocale(context.getResources());
+            NameEntry names = loadNames(context, locale.getLanguage() + "-r" + locale.getCountry());
+            if (names != null) {
+                return names;
+            }
+            return loadNames(context, locale.getLanguage());
+        }
+
+        private static NameEntry loadNames(@NonNull Context context, @NonNull String language) {
+            JsonReader jsonReader;
+            try {
+                jsonReader = new JsonReader(
+                        new InputStreamReader(context.getAssets().open("pokemons/" + language + "/names.json")));
+            } catch (IOException e) {
+                Timber.e(e);
+                return null;
+            }
+            return new Gson().fromJson(jsonReader, NameEntry.class);
+        }
+
+        public String getName(int number) {
+            return names.get(number);
+        }
+
+        public String getDisplayName(int number) {
+            return displayNames.get(number);
+        }
+
+        public String getForm(String form) {
+            return forms.get(form);
+        }
+
+        /*public String getType(String type) {
+            return types.get(type);
+        }*/
+    }
+
+    private static Locale getLocale(@NonNull Resources res) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            return res.getConfiguration().getLocales().get(0);
+        } else {
+            return res.getConfiguration().locale;
+        }
+    }
 
     protected static synchronized @NonNull PokeInfoCalculator getInstance(@NonNull Context context) {
         if (instance == null) {
-            instance = new PokeInfoCalculator(GoIVSettings.getInstance(context), context.getResources());
+            instance = new PokeInfoCalculator(GoIVSettings.getInstance(context), context);
         }
         return instance;
     }
@@ -54,24 +224,87 @@ public class PokeInfoCalculator {
      * Creates a pokemon info calculator with the pokemon as argument.
      *
      * @param settings Settings instance
-     * @param res      System resources
+     * @param context The context of this instance
      */
-    private PokeInfoCalculator(@NonNull GoIVSettings settings, @NonNull Resources res) {
-        populatePokemon(settings, res);
-
-        // create and cache the full pokemon display name list
-        ArrayList<String> pokemonNamesArray = new ArrayList<>();
-        for (PokemonBase poke : getPokedex()) {
-            for (Pokemon pokemonForm : poke.forms) {
-                pokemonNamesArray.add(pokemonForm.toString());
-            }
+    private PokeInfoCalculator(@NonNull GoIVSettings settings, @NonNull Context context) {
+        JsonReader json;
+        try {
+            json = new JsonReader(new InputStreamReader(context.getAssets().open("pokemons/goiv-stats.json")));
+        } catch (IOException e) {
+            throw new IllegalStateException("Couldn't load the pokemon stats file");
         }
 
-        pokeNamesWithForm = pokemonNamesArray.toArray(new String[pokemonNamesArray.size()]);
+        Names names = new Names(settings, context);
+        BaseEntry[] entries = new Gson().fromJson(json, BaseEntry[].class);
+        SparseArray<PokemonBase> numberedPokedex = new SparseArray<>();
+        HashSet<String> multipleForms = new HashSet<>();
+        int formCount = 0;
+        // First determine which families have multiple forms, in those cases we want to show all forms
+        for (BaseEntry entry : entries) {
+            if (entry.forms.length > 1) {
+                multipleForms.add(entry.family);
+            }
+            formCount += entry.forms.length;
+        }
+        ArrayList<Pokemon> formVariantPokemons = new ArrayList<>(formCount);
+        ArrayList<PokemonBase> pokedex = new ArrayList<>(entries.length);
+        ArrayList<PokemonBase> candyPokemons = new ArrayList<>();
+
+        // Now create each entry base entry, their forms and assign the "candy" names
+        for (BaseEntry entry : entries) {
+            PokemonBase base = entry.create(names, multipleForms.contains(entry.family));
+            numberedPokedex.put(base.number, base);
+
+            if (entry.family.equals(entry.name)) {
+                candyPokemons.add(base);
+            }
+
+            formVariantPokemons.addAll(entry.createForms());
+        }
+
+        // Now go through each item and assign the devolutions, also add the item to the evolution in the devolutions.
+        for (BaseEntry baseEntry : entries) {
+            if (baseEntry.devolution != null) {
+                baseEntry.object.devolution = numberedPokedex.get(baseEntry.devolution);
+                baseEntry.object.devolution.evolutions.add(baseEntry.object);
+
+                for (PokemonEntry form : baseEntry.forms) {
+                    for (Pokemon devolvedForm : baseEntry.object.devolution.forms) {
+                        if (form.devolution.contains(devolvedForm.internalFormName)) {
+                            form.object.devolutions.add(devolvedForm);
+                            devolvedForm.evolutions.add(form.object);
+                        }
+                    }
+                }
+            }
+            pokedex.add(baseEntry.object);
+        }
+
+        this.pokedex = Collections.unmodifiableList(pokedex);
+        this.formVariantPokemons = Collections.unmodifiableList(formVariantPokemons);
+        this.types = Collections.unmodifiableList(new ArrayList<>(names.types.values()));
+        this.pokeNamesWithForm = new String[this.formVariantPokemons.size()];
+        for (int i = 0; i < this.formVariantPokemons.size(); i++) {
+            this.pokeNamesWithForm[i] = this.formVariantPokemons.get(i).toString();
+        }
+        this.candyPokemons = Collections.unmodifiableList(candyPokemons);
     }
 
     public List<PokemonBase> getPokedex() {
-        return Collections.unmodifiableList(pokedex);
+        return pokedex;
+    }
+
+    public List<TranslatedType> getTypes() {
+        return types;
+    }
+
+    public PokemonBase get(int number) {
+        for (PokemonBase base : pokedex) {
+            if (base.number == number) {
+                return base;
+            }
+        }
+        return null;
     }
 
     public List<Pokemon> getPokedexForms() {
@@ -79,75 +312,12 @@ public class PokeInfoCalculator {
     }
 
     /**
-     * Returns the full list of pokemons possible candy name.
+     * Returns the full list of names possible candy name.
      *
-     * @return List of all candy pokemons that exist in Pokemon Go.
+     * @return List of all candy names that exist in Pokemon Go.
      */
     public List<PokemonBase> getCandyPokemons() {
-        return Collections.unmodifiableList(candyPokemons);
-    }
-
-    /**
-     * Returns a pokemon which corresponds to the number sent in.
-     *
-     * @param number the number which this application internally uses to identify pokemon
-     * @return The pokemon if valid number, null if no pokemon found.
-     */
-    public PokemonBase get(int number) {
-        if (number >= 0 && number < pokedex.size()) {
-            return pokedex.get(number);
-        }
-        return null;
-    }
-
-    /**
-     * Returns the normal form for a given number, working only for pokemons which don't have any forms.
-     *
-     * @param number the number which this application internally uses to identify pokemon
-     * @return Pokemon instance
-     */
-    public Pokemon getForm(int number) {
-        return getForm(number, "");
-    }
-
-    /**
-     * Returns a specific pokemon for a given number and form name.
-     *
-     * @param number the number which this application internally uses to identify pokemon
-     * @param formName the form name of the pokemon
-     * @return Pokemon instance
-     */
-    public Pokemon getForm(int number, String formName) {
-        return get(number).getForm(formName);
-    }
-
-    public static String[] getPokemonNamesArray(Resources res) {
-        if (res.getBoolean(R.bool.use_default_pokemonsname_as_ocrstring)) {
-            // If flag ON, force to use English strings as pokemon name for OCR.
-            Configuration conf = res.getConfiguration();
-            Locale originalLocale; // Save original locale
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                originalLocale = conf.getLocales().get(0);
-            } else {
-                originalLocale = conf.locale;
-            }
-            conf.setLocale(Locale.ENGLISH);
-            res.updateConfiguration(conf, null);
-            String[] rtn = res.getStringArray(R.array.pokemon);
-            conf.setLocale(originalLocale); // Restore to original locale
-            res.updateConfiguration(conf, null);
-            return rtn;
-        }
-        return res.getStringArray(R.array.pokemon);
-    }
-
-    private static String[] getPokemonDisplayNamesArray(GoIVSettings settings, Resources res) {
-        if (settings.isShowTranslatedPokemonName()) {
-            // If pref ON, use translated strings as pokemon name.
-            return res.getStringArray(R.array.pokemon);
-        }
-        // Otherwise, use default locale's pokemon name.
-        return getPokemonNamesArray(res);
+        return candyPokemons;
     }
 
     /**
@@ -157,76 +327,6 @@ public class PokeInfoCalculator {
      */
     public String[] getPokemonNamesWithFormArray() {
         return pokeNamesWithForm;
-    }
-
-    /**
-     * Fills the list "pokemon" with the information of all pokemon by reading the
-     * arrays in integers.xml and the names from the strings.xml resources.
-     */
-    private void populatePokemon(@NonNull GoIVSettings settings, @NonNull Resources res) {
-        final String[] names = getPokemonNamesArray(res);
-        final String[] displayNames = getPokemonDisplayNamesArray(settings, res);
-        final int[] attack = res.getIntArray(R.array.attack);
-        final int[] defense = res.getIntArray(R.array.defense);
-        final int[] stamina = res.getIntArray(R.array.stamina);
-        final int[] devolution = res.getIntArray(R.array.devolutionNumber);
-        final int[] evolutionCandyCost = res.getIntArray(R.array.evolutionCandyCost);
-        final int[] candyNamesArray = res.getIntArray(R.array.candyNames);
-        final int[] formsCountIndex = res.getIntArray(R.array.formsCountIndex);
-
-        int pokeListSize = names.length;
-        ArrayList<Pokemon> formVariantPokemons = new ArrayList<>();
-
-        // quick hardcoded patch for Meltan and Melmetal
-        // Tentatively use pokedex list size until supporting discontinuous pokedex numbers,
-        // like as #493 Arceus, #808 Meltan, #809 Melmetal.
-        candyNamesArray[pokeListSize - 2] = pokeListSize - 2;
-        candyNamesArray[pokeListSize - 1] = pokeListSize - 2;
-        devolution[pokeListSize - 1] = pokeListSize - 2;
-        // END patch for Meltan and Melmetal
-
-        for (int i = 0; i < pokeListSize; i++) {
-            PokemonBase p = new PokemonBase(names[i], displayNames[i], i, devolution[i], evolutionCandyCost[i]);
-            pokedex.add(p);
-        }
-
-        for (int i = 0; i < pokeListSize; i++) {
-            if (devolution[i] != -1) {
-                PokemonBase devo = pokedex.get(devolution[i]);
-                devo.evolutions.add(pokedex.get(i));
-            } else {
-                candyPokemons.add(pokedex.get(candyNamesArray[i]));
-            }
-
-            PokemonBase base = pokedex.get(i);
-
-            //Check for different pokemon forms, such as alolan forms, and add them to the formsCount.
-            if (formsCountIndex[i] != -1) {
-                int[] formsCount = res.getIntArray(R.array.formsCount);
-                int formsStartIndex = 0;
-
-                for (int j = 0; j < formsCountIndex[i]; j++) {
-                    formsStartIndex += formsCount[j];
-                }
-
-                for (int j = 0; j < formsCount[formsCountIndex[i]]; j++) {
-                    Pokemon formPokemon = new Pokemon(base,
-                            res.getStringArray(R.array.formNames)[formsStartIndex + j],
-                            res.getIntArray(R.array.formAttack)[formsStartIndex + j],
-                            res.getIntArray(R.array.formDefense)[formsStartIndex + j],
-                            res.getIntArray(R.array.formStamina)[formsStartIndex + j]);
-                    base.forms.add(formPokemon);
-                    formVariantPokemons.add(formPokemon);
-                }
-            }
-            else
-            {
-                Pokemon normal = new Pokemon(base, "", attack[i], defense[i], stamina[i]);
-                base.forms.add(normal);
-            }
-        }
-
-        this.formVariantPokemons = Collections.unmodifiableList(formVariantPokemons);
     }
 
     /**
@@ -380,15 +480,6 @@ public class PokeInfoCalculator {
         return new CPRange(cpMin, cpMax);
     }
 
-    private Pokemon getDevolution(Pokemon poke) {
-        if (poke.base.devoNumber >= 0) {
-            PokemonBase devolvedBase = get(poke.base.devoNumber);
-            return devolvedBase.getForm(poke);
-        } else {
-            return null;
-        }
-    }
-
     /**
      * Get the combined cost for evolving all steps between two pokemon, for example the cost from caterpie ->
      * metapod is 12,
@@ -400,14 +491,14 @@ public class PokeInfoCalculator {
      */
     public int getCandyCostForEvolution(Pokemon start, Pokemon end) {
         int cost = 0;
-        while (start != end) { //move backwards from end until you've reached start
-            end = getDevolution(end);
-            // Gone through all devolutions from the end but never passed by start -> start and end are not related
-            if (end == null)
-            {
+        PokemonBase currentBase = end.base;
+        // Iterate over each devolution until there is none OR the current devolution has the start pokemon
+        while (!currentBase.forms.contains(start)) {
+            currentBase = end.base.devolution;
+            if (currentBase == null) {
                 return 0;
             }
-            cost += end.candyEvolutionCost;
+            cost += currentBase.candyEvolutionCost;
         }
         return cost;
     }
@@ -432,32 +523,12 @@ public class PokeInfoCalculator {
     /**
      * Get the lowest evolution in the chain of a pokemon.
      *
-     * @param poke a pokemon, example charizard
-     * @return a pokemon, in the example would return charmander
-     */
-    private Pokemon getLowestEvolution(Pokemon poke) {
-        if (poke.devoNumber < 0) {
-            return poke; //already lowest evolution
-        }
-
-        Pokemon current;
-        do {
-            current = poke;
-            poke = getDevolution(current);
-        }
-        while (poke != null);
-        return current;
-    }
-
-    /**
-     * Get the lowest evolution in the chain of a pokemon.
-     *
      * @param base a pokemon, example charizard
      * @return a pokemon, in the example would return charmander
      */
     private PokemonBase getLowestEvolution(PokemonBase base) {
-        while (base.devoNumber >= 0) {
-            base = get(base.devoNumber);
+        while (base.devolution != null) {
+            base = base.devolution;
         }
         return base;
     }
@@ -485,16 +556,7 @@ public class PokeInfoCalculator {
      * @return a list with pokemon, input pokemon plus its (d)evolutions
      */
     public ArrayList<Pokemon> getEvolutionLine(Pokemon poke) {
-        ArrayList<Pokemon> list = new ArrayList<>();
-
-        for (PokemonBase base : getEvolutionLine(poke.base)) {
-            Pokemon form = base.getForm(poke);
-            if (form != null) {
-                list.add(form);
-            }
-        }
-
-        return list;
+        return poke.getEvolutionLine();
     }
 
     /**

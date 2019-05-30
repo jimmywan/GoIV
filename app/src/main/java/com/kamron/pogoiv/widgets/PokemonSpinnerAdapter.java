@@ -61,7 +61,6 @@ public class PokemonSpinnerAdapter extends ArrayAdapter<Pokemon> {
                 int formSort = p2.formName.compareTo(p1.formName);
                 if (formSort == 0){ //Same form, sort by dex number
                     return p1.number-p2.number;
-
                 }
                 return formSort;
             }
